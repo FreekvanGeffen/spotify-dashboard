@@ -29,7 +29,7 @@ with col2:
     st.metric("Number of tracks", df_playlist["numbers"].iloc[0])
 
 ## Image
-st.image(latest_playlist_info["image"], use_column_width=True)
+st.image(latest_playlist_info["image"], width=400)
 
 ## Table
 col1, col2 = st.columns([1, 1])
@@ -78,3 +78,15 @@ st.radio(
 
 # Plot the selected column against the date column
 st.line_chart(df_playlist.set_index("date")[st.session_state.column_selection])
+
+dark_mode_css = """
+    <style>
+        /* Add your custom CSS for dark mode here */
+        body {
+            background-color: #1a1a1a; /* Example: Dark background color */
+            color: #ffffff; /* Example: Light text color */
+        }
+        /* Add more CSS rules for other elements */
+    </style>
+    """
+st.markdown(dark_mode_css, unsafe_allow_html=True)
