@@ -37,3 +37,8 @@ def fetch_spotify_data(repo_url, local_repo_path, file_paths):
 
 def display_image(url):
     return f'<img src="{url}" width="50">'
+
+
+def convert_to_timedelta(duration_str):
+    minutes, seconds = map(int, duration_str.split(":"))
+    return pd.Timedelta(minutes=minutes, seconds=seconds)
