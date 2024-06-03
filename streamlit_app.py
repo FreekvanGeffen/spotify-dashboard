@@ -1,5 +1,6 @@
 """ Streamlit app for Spotify Playlist Report."""
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 from utils import convert_to_timedelta, display_image, fetch_spotify_data
@@ -27,9 +28,9 @@ st.write(f"{latest_playlist_info['description']}")
 
 col1, col2, col3 = st.columns(3)
 with col1:
-    st.metric("Number of followers", df_playlist["followers"].iloc[0])
+    st.metric("Number of followers", latest_playlist_info["followers"])
 with col2:
-    st.metric("Number of tracks", df_playlist["numbers"].iloc[0])
+    st.metric("Number of tracks", latest_playlist_info["numbers"])
 with col3:
     st.metric(
         "Number of hours",
@@ -47,27 +48,43 @@ html_code = f"""
 """
 st.markdown(html_code, unsafe_allow_html=True)
 
-## Bar chart
-if "bar_selection" not in st.session_state:
-    st.session_state.bar_selection = "added_by"
-st.radio(
-    "Select column",
-    key="bar_selection",
-    options=["added_by", "artist", "album", "release_year"],
-)
-df_plot = df_tracks[st.session_state.bar_selection].value_counts().reset_index()
-st.bar_chart(
-    df_plot,
-    x=st.session_state.bar_selection,
-    y="count",
-)
+tab1, tab2 = st.tabs(["Playlist", "Tracks"])
 
-## Line Chart
-if "column_selection" not in st.session_state:
-    st.session_state.column_selection = "followers"
-st.radio(
-    "Select column",
-    key="column_selection",
-    options=["followers", "numbers"],
-)
-st.line_chart(df_playlist.set_index("date")[st.session_state.column_selection])
+with tab1:
+    ## Line Chart
+    if "column_selection" not in st.session_state:
+        st.session_state.column_selection = "followers"
+    st.radio(
+        "Select column",
+        key="column_selection",
+        options=["followers", "numbers"],
+    )
+
+    chart = (
+        alt.Chart(df_playlist)
+        .mark_line()
+        .encode(
+            x=alt.X("date:T", axis=alt.Axis(format="%Y-%m-%d")),
+            y=f"{st.session_state.column_selection}:Q",
+        )
+        .properties(
+            title=f"{st.session_state.column_selection} over time", width="container"
+        )
+    )
+    st.altair_chart(chart, use_container_width=True)
+
+with tab2:
+    ## Bar chart
+    if "bar_selection" not in st.session_state:
+        st.session_state.bar_selection = "added_by"
+    st.radio(
+        "Select column",
+        key="bar_selection",
+        options=["added_by", "artist", "album", "release_year"],
+    )
+    df_plot = df_tracks[st.session_state.bar_selection].value_counts().reset_index()
+    st.bar_chart(
+        df_plot,
+        x=st.session_state.bar_selection,
+        y="count",
+    )
