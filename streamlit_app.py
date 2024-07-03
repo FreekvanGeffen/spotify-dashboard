@@ -5,6 +5,7 @@ from datetime import datetime
 import altair as alt
 import pandas as pd
 import streamlit as st
+from authenication import app_display_welcome, app_get_token, app_sign_in
 from streamlit_gsheets import GSheetsConnection
 from utils import convert_to_timedelta, display_image, fetch_spotify_data, parse_date
 from vote import (
@@ -83,7 +84,30 @@ with tab1:
     st.altair_chart(chart, use_container_width=True)
 
 with tab2:
-    sp = create_spotipy_oauth_client()
+    # sp = create_spotipy_oauth_client()
+    if "signed_in" not in st.session_state:
+        st.session_state["signed_in"] = False
+    if "cached_token" not in st.session_state:
+        st.session_state["cached_token"] = ""
+    if "code" not in st.session_state:
+        st.session_state["code"] = ""
+    if "oauth" not in st.session_state:
+        st.session_state["oauth"] = None
+
+    url_params = st.experimental_get_query_params()
+    # attempt sign in with cached token
+    if st.session_state["cached_token"] != "":
+        sp = app_sign_in()
+    # if no token, but code in url, get code, parse token, and sign in
+    elif "code" in url_params:
+        # all params stored as lists, see doc for explanation
+        st.session_state["code"] = url_params["code"][0]
+        app_get_token()
+        sp = app_sign_in()
+    # otherwise, prompt for redirect
+    else:
+        app_display_welcome()
+
     conn = st.connection("gsheets", type=GSheetsConnection)
     df_votes = conn.read()
 

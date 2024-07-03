@@ -1,6 +1,5 @@
 """Facilities to interact with the `Spotify` API."""
 
-import datetime
 import os
 
 import spotipy
