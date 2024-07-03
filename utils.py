@@ -1,6 +1,7 @@
 """ Utility functions for the Spotify Dashboard application. """
 
 import shutil
+from datetime import datetime
 
 import git
 import pandas as pd
@@ -42,3 +43,12 @@ def display_image(url):
 def convert_to_timedelta(duration_str):
     minutes, seconds = map(int, duration_str.split(":"))
     return pd.Timedelta(minutes=minutes, seconds=seconds)
+
+
+def parse_date(date_str):
+    for fmt in ("%Y-%m-%d", "%Y"):
+        try:
+            return datetime.strptime(date_str, fmt)
+        except ValueError:
+            pass
+    raise ValueError(f"Date format for {date_str} is not recognized")
