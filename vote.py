@@ -8,7 +8,7 @@ from spotipy.exceptions import SpotifyException
 from spotipy.oauth2 import SpotifyOAuth
 
 
-def create_spotipy_oauth_client(copy_response=False):
+def create_spotipy_oauth_client():
     sp_oauth = SpotifyOAuth(
         client_id=os.getenv("SPOTIPY_CLIENT_ID"),
         client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
@@ -19,7 +19,7 @@ def create_spotipy_oauth_client(copy_response=False):
     auth_url = sp_oauth.get_authorize_url()
     st.markdown(f"[Authorize Spotify]({auth_url})")
 
-    if "code" in st.query_params and not copy_response:
+    if "code" in st.query_params:
         response = (
             f"https://hetevangelievanjob.streamlit.app/?code={st.query_params['code']}"
         )
