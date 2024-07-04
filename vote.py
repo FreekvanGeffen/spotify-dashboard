@@ -39,7 +39,7 @@ def create_spotipy_oauth_client():
         client_id=os.getenv("SPOTIPY_CLIENT_ID"),
         client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
         redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI"),
-        scope="playlist-modify-public",  # playlist-modify-private",
+        scope="playlist-modify-public playlist-modify-private",
         open_browser=False,
     )
 
