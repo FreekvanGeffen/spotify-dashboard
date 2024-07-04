@@ -212,6 +212,7 @@ with tab3:
                     "added_at": st.column_config.DatetimeColumn(
                         "Added At", format="YYYY-MM-DD"
                     ),
+                    "voted_by": "Voted By",
                 },
                 hide_index=True,
             )
