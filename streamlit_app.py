@@ -1,5 +1,6 @@
 """ Streamlit app for Spotify Playlist Report."""
 
+import os
 from datetime import datetime, timedelta
 
 import altair as alt
@@ -30,6 +31,12 @@ df_playlist = data["data_folder/playlist.ndjson"]
 latest_playlist_info = df_playlist.sort_values("date", ascending=False).iloc[0]
 total_duration = df_tracks["duration_timedelta"].sum()
 seven_days_ago = datetime.now() - timedelta(days=7)
+
+
+if "cache_path" not in st.session_state:
+    st.session_state["cache_path"] = ".cache"
+    if os.path.exists(st.session_state["cache_path"]):
+        os.remove(st.session_state["cache_path"])
 
 st.balloons()
 
