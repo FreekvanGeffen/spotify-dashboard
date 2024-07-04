@@ -185,16 +185,6 @@ with tab3:
                 st.success(add_track_to_playlist(sp, playlist_id, row["url"]))
 
         # Show votes
-        st.markdown(
-            """
-                <style>
-                .css-1l02zno {
-                    width: 500%;
-                }
-                </style>
-            """,
-            unsafe_allow_html=True,
-        )
         df_votes["added_at"] = df_votes["added_at"].apply(parse_date)
         filtered_df = df_votes[df_votes["added_at"] >= seven_days_ago].sort_values(
             by=["votes", "added_at"], ascending=[False, True]
@@ -215,4 +205,5 @@ with tab3:
                     "voted_by": "Voted By",
                 },
                 hide_index=True,
+                use_container_width=True,
             )
