@@ -6,33 +6,6 @@ import spotipy
 import streamlit as st
 from spotipy.oauth2 import SpotifyOAuth
 
-# def create_spotipy_oauth_client() -> spotipy.Spotify:
-#     """Create a Spotipy client using the Authorization Code Flow.
-
-#     Returns
-#     -------
-#         Spotipy client
-#     """
-#     sp_oauth = SpotifyOAuth(
-#         client_id=os.getenv("SPOTIPY_CLIENT_ID"),
-#         client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
-#         redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI"),
-#         scope="playlist-modify-public",  # playlist-modify-private",
-#         open_browser=False,
-#     )
-
-#     token_info = sp_oauth.get_access_token(as_dict=False)
-
-#     if token_info:
-#         return spotipy.Spotify(auth=token_info)
-#     else:
-#         auth_url = sp_oauth.get_authorize_url()
-#         print(f"Please navigate here to authorize: {auth_url}")
-#         response = input("Enter the URL you were redirected to: ")
-#         code = sp_oauth.parse_response_code(response)
-#         token_info = sp_oauth.get_access_token(code, as_dict=False)
-#         return spotipy.Spotify(auth=token_info)
-
 
 def create_spotipy_oauth_client():
     sp_oauth = SpotifyOAuth(
@@ -42,15 +15,11 @@ def create_spotipy_oauth_client():
         scope="playlist-modify-public playlist-modify-private",
         open_browser=False,
     )
-
-    # Get the authorization URL
     auth_url = sp_oauth.get_authorize_url()
-
-    # Display the authorization URL in the Streamlit app
-    st.write(f"Please navigate here to authorize: [Authorize Spotify]({auth_url})")
-
-    # Input the URL the user was redirected to
-    response = st.text_input("Copy the URL you were redirected to:")
+    st.markdown(f"[Authorize Spotify]({auth_url})")
+    response = st.text_input(
+        "Copy the URL you were redirected to (starts with https://hetevangelievanjob.streamlit.app/?code=...):"
+    )
 
     if response:
         # Extract the authorization code from the response URL

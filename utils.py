@@ -46,7 +46,7 @@ def convert_to_timedelta(duration_str):
 
 
 def parse_date(date_str):
-    for fmt in ("%Y-%m-%d", "%Y"):
+    for fmt in ("%Y-%m-%d", "%Y", "%m/%d/%Y"):
         try:
             return datetime.strptime(date_str, fmt)
         except ValueError:

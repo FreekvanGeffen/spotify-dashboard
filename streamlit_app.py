@@ -1,6 +1,6 @@
 """ Streamlit app for Spotify Playlist Report."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import altair as alt
 import pandas as pd
@@ -14,6 +14,7 @@ from vote import (
     search_track,
 )
 
+playlist_id = "36ElcXTgduenOvy2glOReJ"
 data = fetch_spotify_data(
     "https://github.com/FreekvanGeffen/spotify_pull",
     "spotify_data",
@@ -28,6 +29,7 @@ df_playlist = data["data_folder/playlist.ndjson"]
 
 latest_playlist_info = df_playlist.sort_values("date", ascending=False).iloc[0]
 total_duration = df_tracks["duration_timedelta"].sum()
+seven_days_ago = datetime.now() - timedelta(days=7)
 
 st.balloons()
 
@@ -57,7 +59,7 @@ html_code = f"""
 """
 st.markdown(html_code, unsafe_allow_html=True)
 
-tab1, tab2, tab3 = st.tabs(["Playlist", "Votes", "Tracks"])
+tab1, tab2, tab3 = st.tabs(["Playlist", "Tracks", "Votes"])
 
 with tab1:
     ## Line Chart
@@ -82,7 +84,26 @@ with tab1:
     )
     st.altair_chart(chart, use_container_width=True)
 
+
 with tab2:
+    ## Bar chart
+    if "bar_selection" not in st.session_state:
+        st.session_state.bar_selection = "added_by"
+    st.radio(
+        "Select column",
+        key="bar_selection",
+        options=["added_by", "artist", "album", "release_year"],
+    )
+    df_plot = df_tracks[st.session_state.bar_selection].value_counts().reset_index()
+    df_plot.columns = [st.session_state.bar_selection, "Count"]
+    st.bar_chart(
+        df_plot,
+        x=st.session_state.bar_selection,
+        y="Count",
+    )
+
+
+with tab3:
     sp = create_spotipy_oauth_client()
     if sp:
         st.success("Authorization successful!")
@@ -90,8 +111,6 @@ with tab2:
         df_votes = conn.read()
 
         st.write("Vote to add more tracks to this playlist!")
-
-        playlist_id = "36ElcXTgduenOvy2glOReJ"
         track_name = st.text_input("Track Name", None)
         artist = st.text_input("Artist", None)
 
@@ -124,11 +143,16 @@ with tab2:
                         vote_button = st.button("Vote")
                         if vote_button:
                             # Add vote if track already in vote list
+                            user_name = sp.current_user()["display_name"]
                             if track_info["url"] in df_votes["url"].values:
                                 index = df_votes[
                                     df_votes["url"] == track_info["url"]
                                 ].index[0]
-                                df_votes.loc[index, "votes"] += 1
+                                if user_name in df_votes.loc[index, "voted_by"]:
+                                    st.warning("You have already voted for this track.")
+                                else:
+                                    df_votes.loc[index, "voted_by"] += ", " + user_name
+                                    df_votes.loc[index, "votes"] += 1
 
                             # Add track to vote list if not already there
                             else:
@@ -141,6 +165,7 @@ with tab2:
                                         "added_at": [
                                             datetime.now().strftime("%Y-%m-%d")
                                         ],
+                                        "voted_by": [user_name],
                                     }
                                 )
                                 df_votes = pd.concat([df_votes, df_new_vote])
@@ -148,43 +173,45 @@ with tab2:
                         st.warning(track_check[1])
             else:
                 st.warning("Track not found. Please try again.")
-
-        # Show votes
         conn.update(data=df_votes)
         df_votes = conn.read(ttl=0)
-        if len(df_votes):
-            st.dataframe(
-                df_votes,
-                column_config={
-                    "name": "Name",
-                    "artist": "Artist",
-                    "url": st.column_config.LinkColumn("URL"),
-                    "votes": "Votes",
-                    "added_at": "Added At",
-                },
-                hide_index=True,
-            )
 
+        # Add track to playlist if enough votes
         for index, row in df_votes.iterrows():
-            if row["votes"] > 5:
-                st.success(add_track_to_playlist(sp, playlist_id, row["url"]))
+            if row["votes"] > 4:
                 df_votes.drop(index, inplace=True)
                 conn.update(data=df_votes)
                 df_votes = conn.read(ttl=0)
+                st.success(add_track_to_playlist(sp, playlist_id, row["url"]))
 
-with tab3:
-    ## Bar chart
-    if "bar_selection" not in st.session_state:
-        st.session_state.bar_selection = "added_by"
-    st.radio(
-        "Select column",
-        key="bar_selection",
-        options=["added_by", "artist", "album", "release_year"],
-    )
-    df_plot = df_tracks[st.session_state.bar_selection].value_counts().reset_index()
-    df_plot.columns = [st.session_state.bar_selection, "Count"]
-    st.bar_chart(
-        df_plot,
-        x=st.session_state.bar_selection,
-        y="Count",
-    )
+        # Show votes
+        st.markdown(
+            """
+                <style>
+                .css-1l02zno {
+                    width: 500%;
+                }
+                </style>
+            """,
+            unsafe_allow_html=True,
+        )
+        df_votes["added_at"] = df_votes["added_at"].apply(parse_date)
+        filtered_df = df_votes[df_votes["added_at"] >= seven_days_ago].sort_values(
+            by=["votes", "added_at"], ascending=[False, True]
+        )
+        if len(filtered_df):
+            st.dataframe(
+                filtered_df,
+                column_config={
+                    "name": "Name",
+                    "artist": "Artist",
+                    "url": st.column_config.LinkColumn(
+                        "URL", display_text="Open in Spotify"
+                    ),
+                    "votes": "Votes",
+                    "added_at": st.column_config.DatetimeColumn(
+                        "Added At", format="YYYY-MM-DD"
+                    ),
+                },
+                hide_index=True,
+            )
