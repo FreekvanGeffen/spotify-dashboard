@@ -17,9 +17,13 @@ def create_spotipy_oauth_client():
     )
     auth_url = sp_oauth.get_authorize_url()
     st.markdown(f"[Authorize Spotify]({auth_url})")
-    response = st.text_input(
-        "Copy the URL you were redirected to (starts with https://hetevangelievanjob.streamlit.app/?code=...):"
-    )
+
+    if "code" in st.query_params:
+        response = (
+            f"https://hetevangelievanjob.streamlit.app/?code={st.query_params['code']}"
+        )
+    else:
+        response = st.text_input("Copy the URL you were redirected to:")
 
     if response:
         # Extract the authorization code from the response URL
