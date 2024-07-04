@@ -66,51 +66,9 @@ html_code = f"""
 """
 st.markdown(html_code, unsafe_allow_html=True)
 
-tab1, tab2, tab3 = st.tabs(["Playlist", "Tracks", "Votes"])
+tab1, tab2, tab3 = st.tabs(["Votes", "Playlist", "Tracks"])
 
 with tab1:
-    ## Line Chart
-    if "column_selection" not in st.session_state:
-        st.session_state.column_selection = "followers"
-    st.radio(
-        "Select column",
-        key="column_selection",
-        options=["followers", "numbers"],
-    )
-
-    chart = (
-        alt.Chart(df_playlist)
-        .mark_line()
-        .encode(
-            x=alt.X("date:T", axis=alt.Axis(format="%Y-%m-%d")),
-            y=f"{st.session_state.column_selection}:Q",
-        )
-        .properties(
-            title=f"{st.session_state.column_selection} over time", width="container"
-        )
-    )
-    st.altair_chart(chart, use_container_width=True)
-
-
-with tab2:
-    ## Bar chart
-    if "bar_selection" not in st.session_state:
-        st.session_state.bar_selection = "added_by"
-    st.radio(
-        "Select column",
-        key="bar_selection",
-        options=["added_by", "artist", "album", "release_year"],
-    )
-    df_plot = df_tracks[st.session_state.bar_selection].value_counts().reset_index()
-    df_plot.columns = [st.session_state.bar_selection, "Count"]
-    st.bar_chart(
-        df_plot,
-        x=st.session_state.bar_selection,
-        y="Count",
-    )
-
-
-with tab3:
     sp = create_spotipy_oauth_client()
     if sp:
         st.success("Authorization successful!")
@@ -214,3 +172,45 @@ with tab3:
                 hide_index=True,
                 use_container_width=True,
             )
+
+
+with tab2:
+    ## Line Chart
+    if "column_selection" not in st.session_state:
+        st.session_state.column_selection = "followers"
+    st.radio(
+        "Select column",
+        key="column_selection",
+        options=["followers", "numbers"],
+    )
+
+    chart = (
+        alt.Chart(df_playlist)
+        .mark_line()
+        .encode(
+            x=alt.X("date:T", axis=alt.Axis(format="%Y-%m-%d")),
+            y=f"{st.session_state.column_selection}:Q",
+        )
+        .properties(
+            title=f"{st.session_state.column_selection} over time", width="container"
+        )
+    )
+    st.altair_chart(chart, use_container_width=True)
+
+
+with tab3:
+    ## Bar chart
+    if "bar_selection" not in st.session_state:
+        st.session_state.bar_selection = "added_by"
+    st.radio(
+        "Select column",
+        key="bar_selection",
+        options=["added_by", "artist", "album", "release_year"],
+    )
+    df_plot = df_tracks[st.session_state.bar_selection].value_counts().reset_index()
+    df_plot.columns = [st.session_state.bar_selection, "Count"]
+    st.bar_chart(
+        df_plot,
+        x=st.session_state.bar_selection,
+        y="Count",
+    )

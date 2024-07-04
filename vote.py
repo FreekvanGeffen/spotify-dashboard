@@ -23,7 +23,7 @@ def create_spotipy_oauth_client():
             f"https://hetevangelievanjob.streamlit.app/?code={st.query_params['code']}"
         )
     else:
-        response = st.text_input("Copy the URL you were redirected to:")
+        response = False
 
     if response:
         # Extract the authorization code from the response URL
@@ -41,7 +41,8 @@ def create_spotipy_oauth_client():
             return spotipy.Spotify(auth=token_info)
         except Exception as e:
             st.error(f"An error occurred: {e}")
-            return None
+            response = st.text_input("Copy the URL you were redirected to:")
+            return response
 
 
 def get_playlist(sp: spotipy, playlist_id: str) -> dict:
