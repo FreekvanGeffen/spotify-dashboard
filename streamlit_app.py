@@ -84,90 +84,93 @@ with tab1:
 
 with tab2:
     sp = create_spotipy_oauth_client()
+    if sp:
+        st.success("Authorization successful!")
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        df_votes = conn.read()
 
-    conn = st.connection("gsheets", type=GSheetsConnection)
-    df_votes = conn.read()
+        st.write("Vote to add more tracks to this playlist!")
 
-    st.write("Vote to add more tracks to this playlist!")
+        playlist_id = "36ElcXTgduenOvy2glOReJ"
+        track_name = st.text_input("Track Name", None)
+        artist = st.text_input("Artist", None)
 
-    playlist_id = "36ElcXTgduenOvy2glOReJ"
-    track_name = st.text_input("Track Name", None)
-    artist = st.text_input("Artist", None)
+        if track_name and artist:
+            with st.spinner("Searching..."):
+                track_info = search_track(sp, track_name, artist)
 
-    if track_name and artist:
-        with st.spinner("Searching..."):
-            track_info = search_track(sp, track_name, artist)
+            if track_info:
+                with st.expander("Track Found!", expanded=True):
+                    html_code = f"""
+                                <div style="text-align: center;">
+                                    <a href="{track_info["url"]}" target="_blank">
+                                        <img src="{track_info["image"]}" alt="Clickable Image" style="width: 50%;">
+                                    </a>
+                                </div>
+                                <br>
+                                """
+                    st.markdown(html_code, unsafe_allow_html=True)
+                    st.write(
+                        f"{track_info['name']} - {track_info['artist']} - {track_info['release_date']}"
+                    )
 
-        if track_info:
-            with st.expander("Track Found!", expanded=True):
-                html_code = f"""
-                            <div style="text-align: center;">
-                                <a href="{track_info["url"]}" target="_blank">
-                                    <img src="{track_info["image"]}" alt="Clickable Image" style="width: 50%;">
-                                </a>
-                            </div>
-                            <br>
-                            """
-                st.markdown(html_code, unsafe_allow_html=True)
-                st.write(
-                    f"{track_info['name']} - {track_info['artist']} - {track_info['release_date']}"
-                )
+                    # Check if track is already in playlist
+                    track_check = check_track_in_playlist(
+                        sp, playlist_id, track_info["url"]
+                    )
+                    if track_check[0]:
+                        # Voting section
+                        st.write("Vote for this track:")
+                        vote_button = st.button("Vote")
+                        if vote_button:
+                            # Add vote if track already in vote list
+                            if track_info["url"] in df_votes["url"].values:
+                                index = df_votes[
+                                    df_votes["url"] == track_info["url"]
+                                ].index[0]
+                                df_votes.loc[index, "votes"] += 1
 
-                # Check if track is already in playlist
-                track_check = check_track_in_playlist(
-                    sp, playlist_id, track_info["url"]
-                )
-                if track_check[0]:
-                    # Voting section
-                    st.write("Vote for this track:")
-                    vote_button = st.button("Vote")
-                    if vote_button:
-                        # Add vote if track already in vote list
-                        if track_info["url"] in df_votes["url"].values:
-                            index = df_votes[
-                                df_votes["url"] == track_info["url"]
-                            ].index[0]
-                            df_votes.loc[index, "votes"] += 1
+                            # Add track to vote list if not already there
+                            else:
+                                df_new_vote = pd.DataFrame.from_dict(
+                                    {
+                                        "name": [track_info["name"]],
+                                        "artist": [track_info["artist"]],
+                                        "url": [track_info["url"]],
+                                        "votes": [1],
+                                        "added_at": [
+                                            datetime.now().strftime("%Y-%m-%d")
+                                        ],
+                                    }
+                                )
+                                df_votes = pd.concat([df_votes, df_new_vote])
+                    else:
+                        st.warning(track_check[1])
+            else:
+                st.warning("Track not found. Please try again.")
 
-                        # Add track to vote list if not already there
-                        else:
-                            df_new_vote = pd.DataFrame.from_dict(
-                                {
-                                    "name": [track_info["name"]],
-                                    "artist": [track_info["artist"]],
-                                    "url": [track_info["url"]],
-                                    "votes": [1],
-                                    "added_at": [datetime.now().strftime("%Y-%m-%d")],
-                                }
-                            )
-                            df_votes = pd.concat([df_votes, df_new_vote])
-                else:
-                    st.warning(track_check[1])
-        else:
-            st.warning("Track not found. Please try again.")
+        # Show votes
+        conn.update(data=df_votes)
+        df_votes = conn.read(ttl=0)
+        if len(df_votes):
+            st.dataframe(
+                df_votes,
+                column_config={
+                    "name": "Name",
+                    "artist": "Artist",
+                    "url": st.column_config.LinkColumn("URL"),
+                    "votes": "Votes",
+                    "added_at": "Added At",
+                },
+                hide_index=True,
+            )
 
-    # Show votes
-    conn.update(data=df_votes)
-    df_votes = conn.read(ttl=0)
-    if len(df_votes):
-        st.dataframe(
-            df_votes,
-            column_config={
-                "name": "Name",
-                "artist": "Artist",
-                "url": st.column_config.LinkColumn("URL"),
-                "votes": "Votes",
-                "added_at": "Added At",
-            },
-            hide_index=True,
-        )
-
-    for index, row in df_votes.iterrows():
-        if row["votes"] > 5:
-            st.success(add_track_to_playlist(sp, playlist_id, row["url"]))
-            df_votes.drop(index, inplace=True)
-            conn.update(data=df_votes)
-            df_votes = conn.read(ttl=0)
+        for index, row in df_votes.iterrows():
+            if row["votes"] > 5:
+                st.success(add_track_to_playlist(sp, playlist_id, row["url"]))
+                df_votes.drop(index, inplace=True)
+                conn.update(data=df_votes)
+                df_votes = conn.read(ttl=0)
 
 with tab3:
     ## Bar chart
