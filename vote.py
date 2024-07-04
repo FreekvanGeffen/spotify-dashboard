@@ -4,10 +4,11 @@ import os
 
 import spotipy
 import streamlit as st
+from spotipy.exceptions import SpotifyException
 from spotipy.oauth2 import SpotifyOAuth
 
 
-def create_spotipy_oauth_client():
+def create_spotipy_oauth_client(copy_response=False):
     sp_oauth = SpotifyOAuth(
         client_id=os.getenv("SPOTIPY_CLIENT_ID"),
         client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
@@ -18,7 +19,7 @@ def create_spotipy_oauth_client():
     auth_url = sp_oauth.get_authorize_url()
     st.markdown(f"[Authorize Spotify]({auth_url})")
 
-    if "code" in st.query_params:
+    if "code" in st.query_params and not copy_response:
         response = (
             f"https://hetevangelievanjob.streamlit.app/?code={st.query_params['code']}"
         )
@@ -42,7 +43,7 @@ def create_spotipy_oauth_client():
         except Exception as e:
             st.error(f"An error occurred: {e}")
             response = st.text_input("Copy the URL you were redirected to:")
-            return response
+            return None
 
 
 def get_playlist(sp: spotipy, playlist_id: str) -> dict:
@@ -158,7 +159,12 @@ def search_track(sp, track_name, artist) -> str:
 
     """
     query = f"track:{track_name} artist:{artist}"
-    result = sp.search(query, limit=1)
+    try:
+        result = sp.search(query, limit=1)
+    except SpotifyException:
+        st.error(
+            "The current user is not allowed to vote, please contact FvG to get access."
+        )
     if result["tracks"]["total"] < 1:
         return None
 

@@ -100,7 +100,7 @@ with tab1:
 
                     # Check if track is already in playlist
                     track_check = check_track_in_playlist(
-                        sp, playlist_id, track_info["url"]
+                        playlist_id, track_info["url"]
                     )
                     if track_check[0]:
                         # Voting section
