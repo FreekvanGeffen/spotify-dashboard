@@ -11,6 +11,8 @@ import streamlit as st
 from spotipy.exceptions import SpotifyException
 from spotipy.oauth2 import SpotifyOAuth
 
+from utils import parse_date
+
 
 def extract_track_id(spotify_url):
     match = re.match(r"https?://open\.spotify\.com/track/([a-zA-Z0-9]+)", spotify_url)
@@ -225,6 +227,7 @@ def vote_for_track(sp, conn, df_votes, url=None, track_info=None):
                 "votes": [1],
                 "added_at": [datetime.now().strftime("%Y-%m-%d")],
                 "voted_by": [user_name],
+                "image": [track_info["image"]],
             }
         )
         df_votes = pd.concat([df_votes, df_new_vote])
@@ -232,3 +235,13 @@ def vote_for_track(sp, conn, df_votes, url=None, track_info=None):
     conn.update(data=df_votes)
     df_votes = conn.read(ttl=0)
     return df_votes
+
+
+def refresh_votes(conn, df_votes, seven_days_ago):
+    df_votes = conn.read(ttl=0)
+    df_votes["added_at"] = df_votes["added_at"].apply(parse_date)
+    filtered_df = df_votes[df_votes["added_at"] >= seven_days_ago].sort_values(
+        by=["votes", "added_at"], ascending=[False, True]
+    )
+
+    return filtered_df

@@ -13,6 +13,7 @@ from vote import (
     add_track_to_playlist,
     check_track_in_playlist,
     create_spotipy_oauth_client,
+    refresh_votes,
     search_track,
     vote_for_track,
 )
@@ -129,6 +130,7 @@ with tab1:
                                 df_votes,
                                 track_info=track_info,
                             )
+                            filtered_df = refresh_votes(conn, df_votes, seven_days_ago)
                     else:
                         st.warning(track_check[1])
             else:
@@ -140,21 +142,20 @@ with tab1:
             if row["votes"] > 4:
                 df_votes.drop(index, inplace=True)
                 conn.update(data=df_votes)
-                df_votes = conn.read(ttl=0)
                 st.success(add_track_to_playlist(sp, playlist_id, row["url"]))
+                filtered_df = refresh_votes(conn, df_votes, seven_days_ago)
 
         # Show votes
-        st.write("Pending votes:")
-        df_votes["added_at"] = df_votes["added_at"].apply(parse_date)
-        filtered_df = df_votes[df_votes["added_at"] >= seven_days_ago].sort_values(
-            by=["votes", "added_at"], ascending=[False, True]
-        )
+        st.markdown("## Pending votes:")
+        if st.button("Refresh votes"):
+            filtered_df = refresh_votes(conn, df_votes, seven_days_ago)
 
+        filtered_df = refresh_votes(conn, df_votes, seven_days_ago)
         if len(filtered_df):
             for index, row in filtered_df.iterrows():
                 # Create a container for each row
                 with st.container():
-                    col1, col2, col3, col4, col5, col6 = st.columns(6)
+                    col1, col2, col3, col4, col5 = st.columns(5)
 
                     if sp.current_user()["display_name"] not in row["voted_by"]:
                         if col1.button("Vote", key=f"action{index}"):
@@ -164,17 +165,24 @@ with tab1:
                                 df_votes,
                                 url=row["url"],
                             )
-                    else:
-                        col1.markdown(
-                            f'<button class="disabled-button">Already voted</button>',
-                            unsafe_allow_html=True,
-                        )
-                    col2.write(row["name"])
-                    col3.write(row["artist"])
-                    col4.write(f"[Open in Spotify]({row['url']})")
-                    col5.write(row["votes"])
-                    col6.write(row["added_at"].strftime("%Y-%m-%d"))
-                    # col7.markdown(f'<p class="small-text">{row["voted_by"]}</p>', unsafe_allow_html=True)
+                    # else:
+                    #     col1.markdown(
+                    #         f'<button class="disabled-button">Already voted</button>',
+                    #         unsafe_allow_html=True,
+                    #     )
+                    col2.write(f"{row['name']} - {row['artist']}")
+                    col3.write(f"[Open in Spotify]({row['url']})")
+                    col4.write(f" Votes: {int(row['votes'])}")
+                    col5.write(row["added_at"].strftime("%Y-%m-%d"))
+                    # col7.markdown(
+                    #     f'<p class="small-text">{row["voted_by"]}</p>',
+                    #     unsafe_allow_html=True,
+                    # )
+                    st.markdown(
+                        """<hr style="height:5px;border:none;color:#333;background-color:#333;" /> """,
+                        unsafe_allow_html=True,
+                    )
+
 
 with tab2:
     ## Line Chart
