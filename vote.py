@@ -1,18 +1,35 @@
 """Facilities to interact with the `Spotify` API."""
 
 import os
+import platform
+import re
+from datetime import datetime
 
+import pandas as pd
 import spotipy
 import streamlit as st
 from spotipy.exceptions import SpotifyException
 from spotipy.oauth2 import SpotifyOAuth
 
 
+def extract_track_id(spotify_url):
+    match = re.match(r"https?://open\.spotify\.com/track/([a-zA-Z0-9]+)", spotify_url)
+    if match:
+        return match.group(1)
+    else:
+        raise ValueError("Invalid Spotify URL")
+
+
 def create_spotipy_oauth_client():
+    if platform.processor() == "arm":
+        redirect_uri = os.getenv("SPOTIPY_REDIRECT_URI_LOCAL")
+    else:
+        redirect_uri = os.getenv("SPOTIPY_REDIRECT_URI")
+
     sp_oauth = SpotifyOAuth(
         client_id=os.getenv("SPOTIPY_CLIENT_ID"),
         client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
-        redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI"),
+        redirect_uri=redirect_uri,
         scope="playlist-modify-public playlist-modify-private",
         open_browser=False,
     )
@@ -144,7 +161,7 @@ def add_track_to_playlist(sp: spotipy, playlist_id: str, track_url: str) -> str:
     return "Track succesfully added to playlist."
 
 
-def search_track(sp, track_name, artist) -> str:
+def search_track(sp, url=None, track_name=None, artist=None) -> str:
     """Search for a track by name.
 
     Args:
@@ -158,22 +175,61 @@ def search_track(sp, track_name, artist) -> str:
         Track URL
 
     """
-    query = f"track:{track_name} artist:{artist}"
-    try:
-        result = sp.search(query, limit=1)
-    except SpotifyException:
-        st.error(
-            "The current user is not allowed to vote, please contact FvG to get access."
-        )
-    if result["tracks"]["total"] < 1:
-        return None
+    assert url is not None or (
+        track_name is not None and artist is not None
+    ), "Please provide a URL or track name and artist."
+    if url is None:
+        query = f"track:{track_name} artist:{artist}"
+        try:
+            result = sp.search(query, limit=1)
+        except SpotifyException:
+            st.error(
+                "The current user is not allowed to vote, please contact FvG to get access."
+            )
+        if result["tracks"]["total"] < 1:
+            return None
+        track = result["tracks"]["items"][0]
+    else:
+        track_id = extract_track_id(url)
+        track = sp.track(track_id)
 
     track_info = {
-        "name": result["tracks"]["items"][0]["name"],
-        "artist": result["tracks"]["items"][0]["artists"][0]["name"],
-        "album": result["tracks"]["items"][0]["album"]["name"],
-        "url": result["tracks"]["items"][0]["external_urls"]["spotify"],
-        "image": result["tracks"]["items"][0]["album"]["images"][0]["url"],
-        "release_date": result["tracks"]["items"][0]["album"]["release_date"],
+        "name": track["name"],
+        "artist": track["artists"][0]["name"],
+        "album": track["album"]["name"],
+        "url": track["external_urls"]["spotify"],
+        "image": track["album"]["images"][0]["url"],
+        "release_date": track["album"]["release_date"],
     }
     return track_info
+
+
+def vote_for_track(sp, conn, df_votes, url=None, track_info=None):
+    # Add vote if track already in vote list
+    user_name = sp.current_user()["display_name"]
+    user_name = "blablabla2"
+    if url in df_votes["url"].values:
+        index = df_votes[df_votes["url"] == url].index[0]
+        if user_name in df_votes.loc[index, "voted_by"]:
+            st.warning("You have already voted for this track.")
+        else:
+            df_votes.loc[index, "voted_by"] += ", " + user_name
+            df_votes.loc[index, "votes"] += 1
+
+    # Add track to vote list if not already there
+    else:
+        df_new_vote = pd.DataFrame.from_dict(
+            {
+                "name": [track_info["name"]],
+                "artist": [track_info["artist"]],
+                "url": [track_info["url"]],
+                "votes": [1],
+                "added_at": [datetime.now().strftime("%Y-%m-%d")],
+                "voted_by": [user_name],
+            }
+        )
+        df_votes = pd.concat([df_votes, df_new_vote])
+
+    conn.update(data=df_votes)
+    df_votes = conn.read(ttl=0)
+    return df_votes

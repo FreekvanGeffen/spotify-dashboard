@@ -7,12 +7,14 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
+
 from utils import convert_to_timedelta, display_image, fetch_spotify_data, parse_date
 from vote import (
     add_track_to_playlist,
     check_track_in_playlist,
     create_spotipy_oauth_client,
     search_track,
+    vote_for_track,
 )
 
 playlist_id = "36ElcXTgduenOvy2glOReJ"
@@ -76,12 +78,26 @@ with tab1:
         df_votes = conn.read()
 
         st.write("Vote to add more tracks to this playlist!")
-        track_name = st.text_input("Track Name", None)
-        artist = st.text_input("Artist", None)
+        if "vote_selection" not in st.session_state:
+            st.session_state.vote_selection = "URL"
+        st.radio(
+            "Search by",
+            key="vote_selection",
+            options=["URL", "Track Name & Artist"],
+        )
+        if st.session_state.vote_selection == "URL":
+            search_url = st.text_input("Spotify URL", None)
+            track_name = None
+            artist = None
 
-        if track_name and artist:
+        if st.session_state.vote_selection == "Track Name & Artist":
+            track_name = st.text_input("Track Name", None)
+            artist = st.text_input("Artist", None)
+            search_url = None
+
+        if search_url or (track_name and artist):
             with st.spinner("Searching..."):
-                track_info = search_track(sp, track_name, artist)
+                track_info = search_track(sp, search_url, track_name, artist)
 
             if track_info:
                 with st.expander("Track Found!", expanded=True):
@@ -100,45 +116,23 @@ with tab1:
 
                     # Check if track is already in playlist
                     track_check = check_track_in_playlist(
-                        playlist_id, track_info["url"]
+                        sp, playlist_id, track_info["url"]
                     )
                     if track_check[0]:
                         # Voting section
                         st.write("Vote for this track:")
                         vote_button = st.button("Vote")
                         if vote_button:
-                            # Add vote if track already in vote list
-                            user_name = sp.current_user()["display_name"]
-                            if track_info["url"] in df_votes["url"].values:
-                                index = df_votes[
-                                    df_votes["url"] == track_info["url"]
-                                ].index[0]
-                                if user_name in df_votes.loc[index, "voted_by"]:
-                                    st.warning("You have already voted for this track.")
-                                else:
-                                    df_votes.loc[index, "voted_by"] += ", " + user_name
-                                    df_votes.loc[index, "votes"] += 1
-
-                            # Add track to vote list if not already there
-                            else:
-                                df_new_vote = pd.DataFrame.from_dict(
-                                    {
-                                        "name": [track_info["name"]],
-                                        "artist": [track_info["artist"]],
-                                        "url": [track_info["url"]],
-                                        "votes": [1],
-                                        "added_at": [
-                                            datetime.now().strftime("%Y-%m-%d")
-                                        ],
-                                        "voted_by": [user_name],
-                                    }
-                                )
-                                df_votes = pd.concat([df_votes, df_new_vote])
+                            df_votes = vote_for_track(
+                                sp,
+                                conn,
+                                df_votes,
+                                track_info=track_info,
+                            )
                     else:
                         st.warning(track_check[1])
             else:
                 st.warning("Track not found. Please try again.")
-        conn.update(data=df_votes)
         df_votes = conn.read(ttl=0)
 
         # Add track to playlist if enough votes
@@ -150,29 +144,37 @@ with tab1:
                 st.success(add_track_to_playlist(sp, playlist_id, row["url"]))
 
         # Show votes
+        st.write("Pending votes:")
         df_votes["added_at"] = df_votes["added_at"].apply(parse_date)
         filtered_df = df_votes[df_votes["added_at"] >= seven_days_ago].sort_values(
             by=["votes", "added_at"], ascending=[False, True]
         )
-        if len(filtered_df):
-            st.dataframe(
-                filtered_df,
-                column_config={
-                    "name": "Name",
-                    "artist": "Artist",
-                    "url": st.column_config.LinkColumn(
-                        "URL", display_text="Open in Spotify"
-                    ),
-                    "votes": "Votes",
-                    "added_at": st.column_config.DatetimeColumn(
-                        "Added At", format="YYYY-MM-DD"
-                    ),
-                    "voted_by": "Voted By",
-                },
-                hide_index=True,
-                use_container_width=True,
-            )
 
+        if len(filtered_df):
+            for index, row in filtered_df.iterrows():
+                # Create a container for each row
+                with st.container():
+                    col1, col2, col3, col4, col5, col6 = st.columns(6)
+
+                    if sp.current_user()["display_name"] not in row["voted_by"]:
+                        if col1.button("Vote", key=f"action{index}"):
+                            df_votes = vote_for_track(
+                                sp,
+                                conn,
+                                df_votes,
+                                url=row["url"],
+                            )
+                    else:
+                        col1.markdown(
+                            f'<button class="disabled-button">Already voted</button>',
+                            unsafe_allow_html=True,
+                        )
+                    col2.write(row["name"])
+                    col3.write(row["artist"])
+                    col4.write(f"[Open in Spotify]({row['url']})")
+                    col5.write(row["votes"])
+                    col6.write(row["added_at"].strftime("%Y-%m-%d"))
+                    # col7.markdown(f'<p class="small-text">{row["voted_by"]}</p>', unsafe_allow_html=True)
 
 with tab2:
     ## Line Chart
