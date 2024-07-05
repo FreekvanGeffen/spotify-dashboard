@@ -207,7 +207,6 @@ def search_track(sp, url=None, track_name=None, artist=None) -> str:
 def vote_for_track(sp, conn, df_votes, url=None, track_info=None):
     # Add vote if track already in vote list
     user_name = sp.current_user()["display_name"]
-    user_name = "blablabla2"
     if url in df_votes["url"].values:
         index = df_votes[df_votes["url"] == url].index[0]
         if user_name in df_votes.loc[index, "voted_by"]:
