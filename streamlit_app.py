@@ -148,6 +148,10 @@ with tab1:
         st.markdown("## Pending votes:")
         if st.button("Refresh votes"):
             filtered_df = refresh_votes(conn, df_votes, seven_days_ago)
+        st.markdown(
+            """<hr style="height:5px;border:none;color:#333;background-color:#333;" /> """,
+            unsafe_allow_html=True,
+        )
 
         filtered_df = refresh_votes(conn, df_votes, seven_days_ago)
         if len(filtered_df):
