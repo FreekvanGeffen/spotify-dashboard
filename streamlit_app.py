@@ -76,7 +76,7 @@ with tab1:
     if sp:
         st.success("Authorization successful!")
         conn = st.connection("gsheets", type=GSheetsConnection)
-        df_votes = conn.read()
+        df_votes = conn.read(ttl=0)
 
         st.write("Vote to add more tracks to this playlist!")
         if "vote_selection" not in st.session_state:
@@ -135,7 +135,6 @@ with tab1:
                         st.warning(track_check[1])
             else:
                 st.warning("Track not found. Please try again.")
-        df_votes = conn.read(ttl=0)
 
         # Add track to playlist if enough votes
         for index, row in df_votes.iterrows():
@@ -165,11 +164,7 @@ with tab1:
                                 df_votes,
                                 url=row["url"],
                             )
-                    # else:
-                    #     col1.markdown(
-                    #         f'<button class="disabled-button">Already voted</button>',
-                    #         unsafe_allow_html=True,
-                    #     )
+                            st.rerun()
                     col2.write(f"{row['name']} - {row['artist']}")
                     col3.write(f"[Open in Spotify]({row['url']})")
                     col4.write(f" Votes: {int(row['votes'])}")
