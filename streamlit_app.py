@@ -4,7 +4,6 @@ import os
 from datetime import datetime, timedelta
 
 import altair as alt
-import pandas as pd
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 
@@ -73,6 +72,16 @@ tab1, tab2, tab3 = st.tabs(["Votes", "Playlist", "Tracks"])
 
 with tab1:
     sp = create_spotipy_oauth_client()
+
+    if sp:
+        try:
+            sp.current_user()
+        except Exception:
+            st.error(
+                "The current user is not allowed to vote, please contact FvG to get voting access."
+            )
+            sp = None
+
     if sp:
         st.success("Authorization successful!")
         conn = st.connection("gsheets", type=GSheetsConnection)
