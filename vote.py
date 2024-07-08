@@ -10,7 +10,6 @@ import spotipy
 import streamlit as st
 from spotipy.exceptions import SpotifyException
 from spotipy.oauth2 import SpotifyOAuth
-
 from utils import parse_date
 
 
@@ -231,9 +230,25 @@ def vote_for_track(sp, conn, df_votes, url=None, track_info=None):
                 "added_at": [datetime.now().strftime("%Y-%m-%d")],
                 "voted_by": [user_name],
                 "image": [track_info["image"]],
+                "veto": "None",
             }
         )
         df_votes = pd.concat([df_votes, df_new_vote])
+
+    conn.update(data=df_votes)
+    return df_votes
+
+
+def veto_for_track(sp, conn, df_votes, url):
+    # Veto a track
+    user_name = sp.current_user()["display_name"]
+
+    if url in df_votes["url"].values:
+        index = df_votes[df_votes["url"] == url].index[0]
+        if user_name in df_votes.loc[index, "voted_by"]:
+            st.warning("You have already voted for this track.")
+        else:
+            df_votes.loc[index, "veto"] = user_name
 
     conn.update(data=df_votes)
     return df_votes
@@ -245,5 +260,6 @@ def refresh_votes(conn, df_votes, seven_days_ago):
     filtered_df = df_votes[df_votes["added_at"] >= seven_days_ago].sort_values(
         by=["votes", "added_at"], ascending=[False, True]
     )
+    filtered_df = filtered_df[filtered_df["veto"] == "None"]
 
     return filtered_df

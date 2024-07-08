@@ -13,6 +13,7 @@ from vote import (
     create_spotipy_oauth_client,
     refresh_votes,
     search_track,
+    veto_for_track,
     vote_for_track,
 )
 
@@ -170,8 +171,16 @@ with tab1:
                     col1, col2, col3, col4, col5 = st.columns(5)
 
                     if sp.current_user()["display_name"] not in row["voted_by"]:
-                        if col1.button("Vote", key=f"action{index}"):
+                        if col1.button("Vote", key=f"action_vote_{index}"):
                             df_votes = vote_for_track(
+                                sp,
+                                conn,
+                                df_votes,
+                                url=row["url"],
+                            )
+                            st.rerun()
+                        if col1.button("Veto", key=f"action_veto_{index}"):
+                            df_votes = veto_for_track(
                                 sp,
                                 conn,
                                 df_votes,
