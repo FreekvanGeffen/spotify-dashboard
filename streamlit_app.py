@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 import altair as alt
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
-
 from utils import convert_to_timedelta, display_image, fetch_spotify_data, parse_date
 from vote import (
     add_track_to_playlist,
@@ -29,6 +28,8 @@ df_tracks["duration_timedelta"] = df_tracks["duration"].apply(convert_to_timedel
 df_tracks["release_date"] = df_tracks["release_date"].apply(parse_date)
 df_tracks["release_year"] = df_tracks["release_date"].dt.year
 df_playlist = data["data_folder/playlist.ndjson"]
+
+conn = st.connection("gsheets", type=GSheetsConnection)
 
 latest_playlist_info = df_playlist.sort_values("date", ascending=False).iloc[0]
 total_duration = df_tracks["duration_timedelta"].sum()
@@ -68,7 +69,7 @@ html_code = f"""
 """
 st.markdown(html_code, unsafe_allow_html=True)
 
-tab1, tab2, tab3 = st.tabs(["Votes", "Playlist", "Tracks"])
+tab1, tab2, tab3, tab4 = st.tabs(["Votes", "Playlist", "Tracks", "Comments"])
 
 with tab1:
     sp = create_spotipy_oauth_client()
@@ -84,7 +85,6 @@ with tab1:
 
     if sp:
         st.success("Authorization successful!")
-        conn = st.connection("gsheets", type=GSheetsConnection)
         df_votes = conn.read(ttl=0)
 
         st.write("Vote to add more tracks to this playlist!")
@@ -231,4 +231,29 @@ with tab3:
         df_plot,
         x=st.session_state.bar_selection,
         y="Count",
+    )
+
+with tab4:
+    df_comments = conn.read(worksheet="comments")
+
+    with st.form("Add a new comment"):
+        author = st.text_input("Author")
+        comment = st.text_area("Comment")
+        submitted = st.form_submit_button("Submit")
+
+        if submitted and (author is not None) and (comment is not None):
+            new_row = {"author": author, "comment": comment, "date": datetime.now()}
+            df_comments = df_comments.append(new_row, ignore_index=True)
+            conn.update(data=df_comments, worksheet="comments")
+
+    # Display the updated DataFrame
+    st.dataframe(
+        data=df_comments,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "author": "Author",
+            "comment": "Comment",
+            "date": st.column_config.DatetimeColumn("Date", format="YYYY-MM-DD"),
+        },
     )
